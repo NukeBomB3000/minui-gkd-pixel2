@@ -1,6 +1,9 @@
 # Firmware files (extract from your stock SD card — see README.md)
 firmware/
 
+# Dev ROMs (local test ROMs, not committed)
+dev/*/
+
 # Downloaded/generated during build
 MinUI.zip
 *.img

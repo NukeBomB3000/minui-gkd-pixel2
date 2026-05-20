@@ -15,7 +15,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUTPUT="${1:-$SCRIPT_DIR/gkdpixel2-minui.img}"
 FIRMWARE="$SCRIPT_DIR/firmware"
-MINUI_ZIP="$SCRIPT_DIR/MinUI.zip"
+MINUI_BASE_DIR="$SCRIPT_DIR/../MinUI-20251127-1-base"
+MINUI_EXTRAS_DIR="$SCRIPT_DIR/../MinUI-20251127-1-extras"
+MINUI_ZIP="$MINUI_BASE_DIR/MinUI.zip"
 MINUI_RELEASE_URL="https://github.com/shauninman/MinUI/releases/download/MinUI-20251127-1/MinUI-20251127-1-base.zip"
 TOOLCHAIN_REPO="https://github.com/shauninman/union-rgb30-toolchain"
 
@@ -41,16 +43,15 @@ done
 # ─── Download MinUI assets if needed ─────────────────────────────────────────
 
 if [ ! -f "$MINUI_ZIP" ]; then
-    echo "=== Downloading MinUI assets ==="
+    echo "=== MinUI-20251127-1-base not found, downloading ==="
     TMP_ZIP="$(mktemp)"
     curl -L --progress-bar -o "$TMP_ZIP" "$MINUI_RELEASE_URL"
-    # Extract only MinUI.zip from the downloaded base package
+    mkdir -p "$MINUI_BASE_DIR"
     python3 -c "
-import zipfile, shutil
+import zipfile, os
 with zipfile.ZipFile('$TMP_ZIP') as z:
-    with z.open('MinUI.zip') as src, open('$MINUI_ZIP', 'wb') as dst:
-        shutil.copyfileobj(src, dst)
-print('MinUI.zip extracted')
+    z.extractall('$MINUI_BASE_DIR')
+print('MinUI base extracted to $MINUI_BASE_DIR')
 "
     rm -f "$TMP_ZIP"
 fi
@@ -232,6 +233,91 @@ for dir in "Game Boy (GB)" "Game Boy Color (GBC)" "Game Boy Advance (GBA)" \
 done
 for bios in FC GB GBA GBC MD PS SFC; do mkdir -p "$STAGE/Bios/$bios"; done
 mkdir -p "$STAGE/Saves"
+
+# ─── Extras: additional Emu PAKs, Tools, Roms/Bios/Saves dirs ────────────────
+
+if [ -d "$MINUI_EXTRAS_DIR" ]; then
+    echo "=== Including MinUI extras ==="
+
+    # Extra Emu PAKs for gkdpixel (binary-compatible with gkdpixel2 / RK3326S)
+    if [ -d "$MINUI_EXTRAS_DIR/Emus/gkdpixel" ]; then
+        cp -r "$MINUI_EXTRAS_DIR/Emus/gkdpixel/." "$STAGE/.system/gkdpixel2/paks/Emus/"
+    fi
+
+    # Extra Tools for gkdpixel
+    if [ -d "$MINUI_EXTRAS_DIR/Tools/gkdpixel" ]; then
+        mkdir -p "$STAGE/.system/gkdpixel2/paks/Tools"
+        cp -r "$MINUI_EXTRAS_DIR/Tools/gkdpixel/." "$STAGE/.system/gkdpixel2/paks/Tools/"
+    fi
+
+    # Extra Roms, Bios, Saves directory structures
+    if [ -d "$MINUI_EXTRAS_DIR/Roms" ]; then
+        find "$MINUI_EXTRAS_DIR/Roms" -mindepth 1 -maxdepth 1 -type d | while read dir; do
+            mkdir -p "$STAGE/Roms/$(basename "$dir")"
+        done
+    fi
+    if [ -d "$MINUI_EXTRAS_DIR/Bios" ]; then
+        find "$MINUI_EXTRAS_DIR/Bios" -mindepth 1 -maxdepth 1 -type d | while read dir; do
+            mkdir -p "$STAGE/Bios/$(basename "$dir")"
+        done
+    fi
+    if [ -d "$MINUI_EXTRAS_DIR/Saves" ]; then
+        find "$MINUI_EXTRAS_DIR/Saves" -mindepth 1 -maxdepth 1 -type d | while read dir; do
+            mkdir -p "$STAGE/Saves/$(basename "$dir")"
+        done
+    fi
+else
+    echo "WARNING: MinUI extras not found at $MINUI_EXTRAS_DIR, skipping"
+fi
+
+# ─── Dev ROMs: bundle ROMs from dev/<TAG>/ into the image ────────────────────
+#
+# Place up to a few ROMs in dev/GBA/, dev/PS/, dev/GB/ etc. for quick testing.
+# Supported tags match the Roms folder suffixes: GB GBC GBA FC SFC MD PS PAK
+# plus extras: GG MGBA NGPC NGP PCE PKM SGB SMS SUPA VB P8
+
+DEV_DIR="$SCRIPT_DIR/dev"
+declare -A ROMS_FOLDER=(
+    [GB]="Game Boy (GB)"
+    [GBC]="Game Boy Color (GBC)"
+    [GBA]="Game Boy Advance (GBA)"
+    [FC]="Nintendo Entertainment System (FC)"
+    [SFC]="Super Nintendo Entertainment System (SFC)"
+    [MD]="Sega Genesis (MD)"
+    [PS]="Sony PlayStation (PS)"
+    [PAK]="Native Games (PAK)"
+    [GG]="Sega Game Gear (GG)"
+    [MGBA]="Game Boy Advance (MGBA)"
+    [NGPC]="Neo Geo Pocket Color (NGPC)"
+    [NGP]="Neo Geo Pocket (NGP)"
+    [PCE]="TurboGrafx-16 (PCE)"
+    [PKM]="Pokémon mini (PKM)"
+    [SGB]="Super Game Boy (SGB)"
+    [SMS]="Sega Master System (SMS)"
+    [SUPA]="Super Nintendo Entertainment System (SUPA)"
+    [VB]="Virtual Boy (VB)"
+    [P8]="Pico-8 (P8)"
+)
+
+if [ -d "$DEV_DIR" ]; then
+    bundled=0
+    for tag in $(ls "$DEV_DIR"); do
+        src="$DEV_DIR/$tag"
+        [ -d "$src" ] || continue
+        folder="${ROMS_FOLDER[$tag]:-}"
+        if [ -z "$folder" ]; then
+            echo "WARNING: dev/$tag — unknown tag, skipping"
+            continue
+        fi
+        count=$(find "$src" -maxdepth 1 -type f | wc -l)
+        [ "$count" -eq 0 ] && continue
+        mkdir -p "$STAGE/Roms/$folder"
+        cp "$src"/* "$STAGE/Roms/$folder/"
+        echo "  bundled $count ROM(s) from dev/$tag → Roms/$folder"
+        bundled=$((bundled + count))
+    done
+    [ "$bundled" -gt 0 ] && echo "=== Dev ROMs: $bundled file(s) bundled ===" || true
+fi
 
 tar -C "$STAGE" -cf "$MINUI_TAR" .
 rm -rf "$STAGE"
