@@ -1,0 +1,10 @@
+# Firmware files (extract from your stock SD card — see README.md)
+firmware/
+
+# Downloaded/generated during build
+MinUI.zip
+*.img
+*.img.xz
+minui.tar
+.minui-src/
+.toolchain/

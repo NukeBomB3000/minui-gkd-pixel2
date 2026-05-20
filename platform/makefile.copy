@@ -1,0 +1,5 @@
+$(PLATFORM):
+	# $@
+	cp ./workspace/$@/show/show.elf ./build/SYSTEM/$@/bin
+	# sdl12-compat (Wayland backend)
+	cp ./workspace/$@/other/sdl12-compat/build/libSDL-1.2.so.1.2.69 ./build/SYSTEM/$@/lib/libSDL-1.2.so.0
