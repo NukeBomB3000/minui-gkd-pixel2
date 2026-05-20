@@ -130,10 +130,31 @@ mkdir -p "$STAGE/.system/gkdpixel2/bin" \
          "$STAGE/.tmp_update"
 
 cp "$WS/all/minui/build/gkdpixel2/minui.elf"               "$STAGE/.system/gkdpixel2/bin/"
+cp "$WS/all/minarch/build/gkdpixel2/minarch.elf"           "$STAGE/.system/gkdpixel2/bin/"
 cp "$WS/all/say/build/gkdpixel2/say.elf"                   "$STAGE/.system/gkdpixel2/bin/"
 cp "$WS/all/syncsettings/build/gkdpixel2/syncsettings.elf" "$STAGE/.system/gkdpixel2/bin/"
 cp "$WS/gkdpixel2/keymon/keymon.elf"                       "$STAGE/.system/gkdpixel2/bin/"
 cp "$WS/gkdpixel2/libmsettings/libmsettings.so"            "$STAGE/.system/gkdpixel2/lib/"
+
+# Cores (rgb30/aarch64) und Emus-PAKs aus MinUI.zip
+python3 -c "
+import zipfile, os
+with zipfile.ZipFile('$MINUI_ZIP') as z:
+    for n in z.namelist():
+        if n.startswith('.system/rgb30/cores/') and n.endswith('.so'):
+            out = '$STAGE/.system/gkdpixel2/cores/' + os.path.basename(n)
+            open(out,'wb').write(z.read(n))
+    for n in z.namelist():
+        if not n.startswith('.system/gkdpixel/paks/Emus/'): continue
+        rel = n[len('.system/gkdpixel/paks/Emus/'):]
+        if not rel: continue
+        out = '$STAGE/.system/gkdpixel2/paks/Emus/' + rel
+        if n.endswith('/'): os.makedirs(out, exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            open(out,'wb').write(z.read(n))
+            if n.endswith('.sh'): os.chmod(out, 0o755)
+"
 
 # Assets from MinUI.zip
 python3 -c "
@@ -171,11 +192,19 @@ echo "$(date) launch.sh started" >> "$LOGS_PATH/minui.txt"
 keymon.elf >> "$LOGS_PATH/keymon.txt" 2>&1 &
 cd "$(dirname "$0")"
 EXEC_PATH=/tmp/minui_exec
+NEXT_PATH=/tmp/next
 touch "$EXEC_PATH" && sync
 while [ -f "$EXEC_PATH" ]; do
     minui.elf >> "$LOGS_PATH/minui.txt" 2>&1
     echo "$(date +'%F %T')" > "$DATETIME_PATH"
     sync
+    if [ -f "$NEXT_PATH" ]; then
+        CMD=$(cat "$NEXT_PATH")
+        rm -f "$NEXT_PATH"
+        eval "$CMD"
+        echo "$(date +'%F %T')" > "$DATETIME_PATH"
+        sync
+    fi
     [ -f /tmp/poweroff ] && break
 done
 poweroff
