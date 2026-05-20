@@ -40,22 +40,31 @@ sudo pacman -S parted dosfstools e2fsprogs exfatprogs squashfs-tools docker curl
 
 Docker must be running and your user must be in the `docker` group.
 
-## Build & Flash
+## Quick Start — Pre-built Image
 
-```bash
-git clone https://github.com/YOUR_USERNAME/gkdpixel2-minui-port
-cd gkdpixel2-minui-port
+Download `gkdpixel2-minui.img.xz` from the [Releases](https://github.com/NukeBomB3000/minui-gkd-pixel2/releases) page and flash it:
 
-# Place firmware files in ./firmware/ (see above)
-
-sudo ./build_and_image.sh
-# Output: gkdpixel2-minui.img.xz (~400MB)
-```
-
-Flash with Balena Etcher, Raspberry Pi Imager, or:
 ```bash
 xz -d gkdpixel2-minui.img.xz
 sudo dd if=gkdpixel2-minui.img of=/dev/sdX bs=4M status=progress
+```
+
+Or use [Balena Etcher](https://etcher.balena.io/) / Raspberry Pi Imager directly with the `.img.xz` file.
+
+> **Note:** The pre-built image contains the GKD Pixel 2 firmware. You do not need to extract anything from your stock SD card — just flash and go.
+
+## Build from Source
+
+Only needed if you want to modify MinUI or rebuild the image yourself.
+
+```bash
+git clone https://github.com/NukeBomB3000/minui-gkd-pixel2
+cd minui-gkd-pixel2
+
+# Place firmware files in ./firmware/ (see Requirements above)
+
+sudo ./build_and_image.sh
+# Output: gkdpixel2-minui.img.xz (~400MB)
 ```
 
 ## First Boot
