@@ -1,8 +1,7 @@
 # Firmware files (extract from your stock SD card — see README.md)
 firmware/
 
-# Dev ROMs (local test ROMs, not committed)
-dev/*/
+# Rockbox PAK build artifacts
 
 # Downloaded/generated during build
 MinUI.zip
@@ -11,3 +10,19 @@ MinUI.zip
 minui.tar
 .minui-src/
 .toolchain/
+
+# MinUI assets (large binaries, managed manually)
+minui/
+
+# MinUI build workspace
+minui-src/
+
+# DinguxCommander build source
+.dinguxcommander-src/
+
+# Local backups
+*_bak/
+
+# Generated images
+*.img
+*.img.xz
